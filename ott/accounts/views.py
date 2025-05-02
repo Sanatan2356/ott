@@ -9,16 +9,48 @@ from datetime import datetime, timedelta
 from django.utils.timezone import now  # Use timezone-aware datetime
 from rest_framework.exceptions import NotFound
 
-from .serializers import (SignUpSerializer,LoginSerializer,OTPVerifySerializer
+from .serializers import (SignUpSerializer,MobileSerializer,LoginSerializer,OTPVerifySerializer
                             ,SetPasscodeSerializer)
-class SignUpView(APIView):
+
+class AdminSignUpView(APIView):
+    # Optional: uncomment to restrict only to logged-in admin
+    # permission_classes = [IsAdminUser]
+
     def post(self, request):
         serializer = SignUpSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            return Response({"message": "User created successfully."}, status=status.HTTP_201_CREATED)
+            admin = serializer.create_admin(serializer.validated_data)
+            return Response({"message": "Admin user created successfully."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class SignUpView(APIView):
+    def post(self, request):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({"error": "Authorization header missing."}, status=status.HTTP_401_UNAUTHORIZED)
 
+        if not auth_header.startswith('Bearer '):
+            return Response({"error": "Invalid token format."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        token = auth_header.split(' ')[1]
+        try:
+            # Decode the refresh token manually
+            decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+
+            # Extract user info from the decoded token
+            user_id = decoded_token.get('user_id')  
+            print(user_id)
+            user = CustomUser.objects.get(id=user_id)
+        except jwt.ExpiredSignatureError:
+            return Response({"error": "Token has expired."}, status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.InvalidTokenError:
+            return Response({"error": "Invalid token."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = SignUpSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "User profile created successfully."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 def generate_otp(phone_number):
     user = CustomUser.objects.filter(phone_number=phone_number).first()
@@ -31,10 +63,41 @@ def generate_otp(phone_number):
     user.otp = otp
     user.otp_expires = otp_expires
     user.save()
-
-  
     return {"message": "OTP generated and sent.", "otp": otp}  # Don't return OTP in production
 
+class MobileVerifyView(APIView):
+    def post(self, request):
+        serializer = MobileSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        phone_number = serializer.validated_data['phone_number']
+
+        # If user already exists, return error
+        if CustomUser.objects.filter(phone_number=phone_number).exists():
+            return Response(
+                {"status_code": 400, "message": "Phone number already registered."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Generate OTP
+        otp = str(random.randint(100000, 999999))
+        otp_expires = now() + timedelta(minutes=5)
+
+        # Create a temporary user with phone_number and OTP
+        user = CustomUser.objects.create(
+            phone_number=phone_number,
+            otp=otp,
+            otp_expires=otp_expires
+        )
+        user.set_unusable_password()
+        user.save()
+
+        # TODO: Send OTP via SMS here
+
+        return Response(
+            {"status_code": 200, "message": "OTP sent successfully", "otp": otp},
+            status=status.HTTP_200_OK
+        )  # Send OTP to the phone number
+      
 class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -143,8 +206,6 @@ class LogoutView(APIView):
             user_id = decoded_token.get('user_id')  # Adjust based on your token payload
             user = CustomUser.objects.get(id=user_id)
 
-            # Optionally, handle the token blacklisting or any logout logic here
-            print(f"Authenticated user: {user}")
 
         except jwt.ExpiredSignatureError:
             return Response({"error": "Token has expired."}, status=status.HTTP_401_UNAUTHORIZED)

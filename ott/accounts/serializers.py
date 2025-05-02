@@ -6,47 +6,64 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import CustomUser
+from rest_framework import serializers
+from rest_framework.exceptions import NotFound, ValidationError
+from django.contrib.auth.hashers import check_password
 User = get_user_model()
+
+
+
+
+
 
 class SignUpSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
+        model = CustomUser
         fields = ['fullname', 'phone_number', 'gender', 'birthdate', 'passcode']
-
-    def create(self, validated_data):
-        # Check if username is provided, else generate a default one or leave it blank
-        username = validated_data.get('username', None)
-        
-        if not username:
-            # If no username is provided, we can either leave it as None or generate a default username
-            # Optionally, generate a username (e.g., based on the fullname)
-            username = f"user_{validated_data['fullname'].split()[0]}"  # You can customize this logic
-
-        # Ensure that we pass a username to the `create_user` method
-        user = User.objects.create_user(
-            username=username,  # Use the generated or provided username
-            **validated_data  # This will pass the rest of the fields
+        # read_only_fields = ['phone_number']  # prevent changing phone
+    def create_admin(self, validated_data):
+        return CustomUser.objects.create_superuser(
+            username=f"admin_{validated_data['fullname'].split()[0]}",
+            phone_number=validated_data['phone_number'],
+            fullname=validated_data['fullname'],
+            gender=validated_data['gender'],
+            birthdate=validated_data['birthdate'],
+            email='',  # Optional: fill if needed
+            password=validated_data['passcode'],  # assuming passcode is treated as password
         )
-        return user
-    
-from rest_framework import serializers
-from rest_framework.exceptions import NotFound, ValidationError
+    def update(self, instance, validated_data):
+        instance.fullname = validated_data.get('fullname', instance.fullname)
+        instance.gender = validated_data.get('gender', instance.gender)
+        instance.birthdate = validated_data.get('birthdate', instance.birthdate)
+        instance.passcode = validated_data.get('passcode', instance.passcode)
+        instance.save()
+        return instance
+        
+class MobileSerializer(serializers.Serializer):
+    phone_number = serializers.CharField(max_length=10)
 
+    def validate_phone_number(self, value):
+        if CustomUser.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("This phone number is already registered.")
+        return value
 class LoginSerializer(serializers.Serializer):
     phone_number = serializers.CharField(max_length=20)
-    passcode = serializers.CharField(max_length=10, required=False, allow_blank=True)
+    passcode = serializers.CharField(max_length=128, required=False, allow_blank=True)
 
     def validate(self, data):
         phone_number = data.get('phone_number')
         passcode = data.get('passcode')
 
-        user = User.objects.filter(phone_number=phone_number).first()
+        # Retrieve user by phone number
+        user = CustomUser.objects.filter(phone_number=phone_number).first()
         if not user:
             raise NotFound("Phone number not found.")
 
+        # If passcode is provided, validate it
         if passcode:
-            # Password-based login
-            if not user.passcode or user.passcode != passcode:
+            if not user.passcode:
+                raise ValidationError("Passcode is not set for this user.")
+            if not bcrypt.checkpw(passcode.encode(), user.passcode.encode()):
                 raise ValidationError("Invalid passcode.")
             data['login_type'] = 'passcode'
         else:

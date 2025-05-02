@@ -1,12 +1,14 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
+
+
 class CustomUser(AbstractUser):
     
     # Make username optional by allowing null and blank
     username = models.CharField(max_length=150, unique=True, blank=True, null=True)
 
-    fullname = models.CharField(max_length=255)
+    fullname = models.CharField(max_length=255,null=True)
     phone_number = models.CharField(max_length=20,unique=True, blank=True, null=True)
     gender = models.CharField(max_length=10, choices=[('M', 'Male'), ('F', 'Female'), ('O', 'Other')], blank=True, null=True)
     birthdate = models.DateField(blank=True, null=True)
@@ -57,3 +59,5 @@ class UserToken(models.Model):
 
     def __str__(self):
         return f"Token for {self.user.phone_number}"
+    
+
