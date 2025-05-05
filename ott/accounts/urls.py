@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import SignUpView,LoginView,OTPVerifyView,SetPasscodeView,LogoutView,MobileVerifyView,AdminSignUpView
+from .views import (SignUpView,UserProfileView,LoginView,OTPVerifyView,SetPasscodeView,
+LogoutView,MobileVerifyView,AdminSignUpView,AdminAllUsersView,ChangePasscodeView)
 
 urlpatterns = [
     path('verify-mobile/',MobileVerifyView.as_view(),name='verify-mobile'),
@@ -9,4 +10,7 @@ urlpatterns = [
     path('verify-otp/', OTPVerifyView.as_view(), name='verify-otp'),
     path('set-passcode', SetPasscodeView.as_view(), name='set-passcode'),
     path('logout/', LogoutView.as_view(), name='logout'),
+    path('profile/', UserProfileView.as_view(), name='user-profile'),
+    path('admin/all-users/', AdminAllUsersView.as_view(), name='admin-all-users'),
+    path("change-passcode/", ChangePasscodeView.as_view(), name="change-passcode")
 ]

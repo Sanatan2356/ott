@@ -5,7 +5,7 @@ User = get_user_model()
 
 class Video(models.Model):
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='videos')  # creator
-    title = models.CharField(max_length=255)
+    title = models.CharField(max_length=255,unique=True)
     description = models.TextField(blank=True)
     video_file = models.FileField(upload_to='videos/')
     video_size = models.CharField(max_length=20, blank=True, null=True)  # e.g., "12 MB"

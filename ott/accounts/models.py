@@ -9,10 +9,11 @@ class CustomUser(AbstractUser):
     username = models.CharField(max_length=150, unique=True, blank=True, null=True)
 
     fullname = models.CharField(max_length=255,null=True)
-    phone_number = models.CharField(max_length=20,unique=True, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
     gender = models.CharField(max_length=10, choices=[('M', 'Male'), ('F', 'Female'), ('O', 'Other')], blank=True, null=True)
     birthdate = models.DateField(blank=True, null=True)
     passcode = models.CharField(max_length=10, blank=True, null=True)
+    new_user = models.BooleanField(default=True)
 
     #  New fields for OTP functionality
     otp = models.CharField(max_length=6, blank=True, null=True)  # OTP field, store OTP
