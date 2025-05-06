@@ -1,12 +1,12 @@
 from django.urls import path,include
-from .views import VideoUploadView,VideoViewSet
-from rest_framework.routers import DefaultRouter
+from .views import VideoUploadView,VideoViewSet,ToggleFavoriteAPIView,ViewFavoriteVideosAPIView
 
-
-router = DefaultRouter()
-router.register(r'videos', VideoViewSet, basename='video')
 
 urlpatterns = [
     path('upload/', VideoUploadView.as_view(), name='video-upload'),
-    path('', include(router.urls)),
+    path('favorite/', ToggleFavoriteAPIView.as_view(), name='toggle-favorite'),
+    path('views/', VideoViewSet.as_view({'get': 'list'}),name="views-video"),
+    path('favorites/', ViewFavoriteVideosAPIView.as_view(), name='view-favorites'),
 ]
+
+

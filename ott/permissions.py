@@ -5,7 +5,7 @@ import jwt
 from accounts.models import CustomUser
 
 class IsJWTAuthenticated(BasePermission):
-    def has_permission(self, request, view):
+    def has_permission(self, request):
         auth_header = request.headers.get('Authorization')
         if not auth_header:
             raise exceptions.AuthenticationFailed({"status_code": 401, "error": "Authorization header missing."})
@@ -17,14 +17,8 @@ class IsJWTAuthenticated(BasePermission):
         try:
             decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             user_id = decoded.get("user_id")
-            print(user_id)
-            try:
-                user = CustomUser.objects.get(id=user_id)
-            except CustomUser.DoesNotExist:
-                raise exceptions.AuthenticationFailed({"status_code": 401, "error": "User not found."})
-
-            request.user = user  # Attach the user to the request
-            return True
+            return user_id
+            
 
         except jwt.ExpiredSignatureError:
             raise exceptions.AuthenticationFailed({"status_code": 401, "error": "Token has expired."})

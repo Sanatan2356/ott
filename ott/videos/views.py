@@ -1,13 +1,15 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .serializers import VideoSerializer
+from .serializers import VideoSerializer,FavoriteSerializer
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from accounts.models import CustomUser
-from .models import Video
+from .models import Video,Favorite
 import jwt
 from django.conf import settings
+from permissions import IsJWTAuthenticated
+
 
 class VideoUploadView(APIView):
     def post(self, request):
@@ -64,27 +66,70 @@ class VideoUploadView(APIView):
             "status_code": 400,
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
-
 class VideoViewSet(viewsets.ModelViewSet):
-    queryset = Video.objects.all()
     serializer_class = VideoSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(uploaded_by=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        base_url = request.build_absolute_uri('/')[:-1]  # Remove trailing slash
-        video_url = f"{base_url}/api/video/videos/"
-        return Response({"videos": video_url})
-    
-    @action(detail=True, methods=['post'])
-    def increment_views(self, request, pk=None):
-        video = self.get_object()
-        video.views += 1
-        video.save()
-        return Response({
-            "status_code": 200,
-            "message": "Video views incremented",
-            "views": video.views
-        }, status=status.HTTP_200_OK)
+        
+       
+        user_id = IsJWTAuthenticated.has_permission(self,request)
+
+        if user_id:
+            queryset = Video.objects.all()
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({'status_code': 404, "message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+    # @action(detail=True, methods=['post'])
+    # def increment_views(self, request, pk=None):
+    #     video = self.get_object()
+    #     video.views += 1
+    #     video.save()
+    #     return Response({
+    #         "status_code": 200,
+    #         "message": "Video views incremented",
+    #         "views": video.views
+    #     }, status=status.HTTP_200_OK)
+
+
+class ToggleFavoriteAPIView(APIView):
+    def post(self, request):
+        user_id =IsJWTAuthenticated.has_permission(self,request)
+        
+        video_id = request.data.get('video_id')
+        action =request.data.get('action')
+        if not user_id or not video_id:
+            return Response({"error": "user_id and video_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Toggle logic
+        favorite, created = Favorite.objects.get_or_create(user_id=user_id, video_id=video_id)
+
+        if action =='remove':
+            # Already exists -> remove
+            favorite.delete()
+            return Response({"message": "Removed from favorites"}, status=status.HTTP_200_OK)
+        elif action=='add':
+            # Newly created
+            serializer = FavoriteSerializer(favorite)
+            return Response({"message": "Added to favorites", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        
+
+
+class ViewFavoriteVideosAPIView(APIView):
+    def get(self, request):
+        user_id = IsJWTAuthenticated.has_permission(self, request)
+
+        if not user_id:
+            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Query all favorite videos for the authenticated user
+        favorites = Favorite.objects.filter(user_id=user_id)
+
+        # If no favorites found
+        if not favorites.exists():
+            return Response({"message": "No favorite videos found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize the favorite video data
+        serializer = FavoriteSerializer(favorites, many=True)
+
+        return Response({"data": serializer.data}, status=status.HTTP_200_OK)

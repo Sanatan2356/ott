@@ -47,12 +47,9 @@ class MobileSerializer(serializers.Serializer):
     phone_number = serializers.CharField(max_length=10)
 
     def validate_phone_number(self, value):
-        user = CustomUser.objects.filter(phone_number=value).first()
-        if user and user.new_user is False:
-            raise CustomAPIException("This phone number is already registered.", status_code=409)
         return value
         
-class LoginSerializer(serializers.Serializer):
+class VerifyPasscodeSerializer(serializers.Serializer):
     phone_number = serializers.CharField(max_length=20)
     passcode = serializers.CharField(max_length=128, required=False, allow_blank=True)
 
@@ -72,8 +69,7 @@ class LoginSerializer(serializers.Serializer):
                 raise CustomAPIException("Invalid passcode.", status_code=401)
             data['login_type'] = 'passcode'
         else:
-            data['login_type'] = 'otp'
-
+            raise CustomAPIException('Passcode not found.',status_code=404)
         data['user'] = user
         return data
 
@@ -117,9 +113,10 @@ class SetPasscodeSerializer(serializers.Serializer):
         passcode = validated_data['passcode']
 
         try:
+            
             user = CustomUser.objects.filter(phone_number=phone_number).first()
-            if not user:
-                raise CustomAPIException("User does not exist.", status_code=404)
+            if user.passcode:
+                raise CustomAPIException("Passcode already created successfully.", status_code=404)
         except CustomUser.DoesNotExist:
             raise serializers.ValidationError("User does not exist.")
 

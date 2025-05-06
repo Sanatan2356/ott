@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Video
+from .models import Video,Favorite
 
 class VideoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,3 +10,10 @@ class VideoSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         video = Video.objects.create(**validated_data)
         return video
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Favorite
+        fields = [ 'user', 'video', 'favorited_at']
+        read_only_fields = ['favorited_at']
