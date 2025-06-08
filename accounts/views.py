@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.core.exceptions import ObjectDoesNotExist
+from permissions import IsJWTAuthenticated
 from .models import UserToken, CustomUser
 import random
 import bcrypt
@@ -14,6 +16,8 @@ from .serializers import (SignUpSerializer, MobileSerializer,VerifyPasscodeSeria
                           OTPVerifySerializer, SetPasscodeSerializer, UserProfileSerializer, ChangePasswordSerializer)
 from django.conf import settings
 import jwt
+
+
 
 class AdminSignUpView(APIView):
     def post(self, request):
@@ -37,6 +41,7 @@ class SignUpView(APIView):
             decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             user_id = decoded_token.get('user_id')
             user = CustomUser.objects.get(id=user_id)
+
         except jwt.ExpiredSignatureError:
             return Response({"status_code": 401, "message": "Token has expired."}, status=status.HTTP_401_UNAUTHORIZED)
         except jwt.InvalidTokenError:
@@ -60,8 +65,8 @@ class MobileVerifyView(APIView):
         otp = str(random.randint(100000, 999999))
         otp_expires = now() + timedelta(minutes=30)
         if not user:
-            user = CustomUser.objects.create(phone_number=phone_number, otp=otp, otp_expires=otp_expires)
-            user.set_unusable_password()
+            user = CustomUser.objects.create(phone_number=phone_number, otp=otp,otp_expires=otp_expires
+) #,             user.set_unusable_password()
             user.save()
         else:
             user.otp = otp
@@ -124,13 +129,15 @@ class LogoutView(APIView):
         try:
             decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             user_id = decoded_token.get('user_id')
-            CustomUser.objects.get(id=user_id)
+            user=CustomUser.objects.get(id=user_id)
+            user.is_active=False
+            user.save()
         except jwt.ExpiredSignatureError:
             return Response({"status_code": 401, "message": "Token has expired."}, status=status.HTTP_401_UNAUTHORIZED)
         except jwt.InvalidTokenError:
             return Response({"status_code": 401, "message": "Invalid token."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        return Response({"status_code": 200, "message": "Logged out successfully."}, status=status.HTTP_200_OK)
+        return Response({"status_code": 200, "message": "Logged out successfully.","login":False}, status=status.HTTP_200_OK)
 
 class UserProfileView(APIView):
     def get(self, request):
@@ -236,8 +243,8 @@ class ProfileImageUploadView(APIView):
         serializer = ProfileImageSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            print("Saving image for:", request.user.email)
-            print("Image data:", request.FILES.get('profile_image'))
+            # print("Saving image for:", request.user.email)
+            # print("Image data:", request.FILES.get('profile_image'))
 
             return Response({
                 "status_code": 200,
@@ -272,3 +279,53 @@ class UpdateView(APIView):
             return Response({"status_code": 200, "message": "User profile Updaetd successfully."}, status=status.HTTP_200_OK)
         return Response({"status_code": 400, "message": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
+class UserStatusApiView(APIView):
+    def get(self, request):
+        # Step 1: Extract user ID via custom permission
+        user_id = IsJWTAuthenticated.has_permission(self, request)
+        if not user_id:
+            return Response({
+                "status_code": 403,
+                "message": "Authentication failed or token invalid."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Step 2: Fetch the user
+        try:
+            user = CustomUser.objects.get(id=user_id)
+        except ObjectDoesNotExist:
+            return Response({
+                "status_code": 404,
+                "message": "User not found."
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Step 3: Validate user profile info
+        if not user.email or not user.fullname:
+            return Response({
+                "status_code": 403,
+                "message": "User information not filled."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Step 4: Check if passcode is set
+        if not user.passcode:
+            return Response({
+                "status_code": 403,
+                "message": "User passcode not set."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Step 5: Check if user is active
+        if not user.is_active:
+            return Response({
+                "status_code": 403,
+                "message": "User is inactive or logged out.",
+                "login": False
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # Final response
+        return Response({
+            "status_code": 200,
+            "message": "User is valid and active.",
+            "user": {
+                "email": user.email,
+                "fullname": user.fullname
+            }
+        }, status=status.HTTP_200_OK)

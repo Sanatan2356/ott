@@ -129,7 +129,7 @@ class SetPasscodeSerializer(serializers.Serializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['phone_number', 'fullname', 'email', 'gender',"birthdate"]
+        fields = ['phone_number', 'fullname', 'email', 'gender',"birthdate",'profile_image']
 
 class ChangePasswordSerializer(serializers.Serializer):
 

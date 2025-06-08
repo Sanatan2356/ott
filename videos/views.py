@@ -1,17 +1,14 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .serializers import VideoSerializer,FavoriteSerializer,CreatorSerializer,WatchVideoSerializer,VideoSimpleSerializer
+from .serializers import VideoSerializer,FavoriteSerializer,BannerSerializer,BannerAddSerializer,VideoAddSerializer,CreatorAddSerializer,CreatorDetailSerializer,CreatorSerializer,WatchVideoSerializer,VideoSimpleSerializer
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from accounts.models import CustomUser
-from .models import Video,Favorite,Creator
+from .models import Video,Favorite,Creator,Banner
 import jwt
 from django.conf import settings
 from permissions import IsJWTAuthenticated
-
-
-
 
 
 class CreatorAddView(APIView):
@@ -55,7 +52,7 @@ class CreatorAddView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
 
         # ✅ Step 2: Process creation
-        serializer = CreatorSerializer(data=request.data)
+        serializer = CreatorAddSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response({
@@ -111,10 +108,12 @@ class VideoUploadView(APIView):
 
         request.user = user
         creator = request.headers.get('creator')
+        print(creator)
         data = request.data.dict()
         data['creator'] = creator
+      
 
-        serializer = VideoSerializer(data=data)
+        serializer = VideoAddSerializer(data=data)
         
         if serializer.is_valid():
             
@@ -137,7 +136,8 @@ class VideoUploadView(APIView):
         "video_file": video.video_file.url if video.video_file else None,
         "video_size": video.video_size,
         "views": video.views,
-        "created_at": video.created_at,
+         "thumb_image":request.build_absolute_uri(serializer.data['thumb_image']),
+        "created_at": video.created_at
     }
 }, status=status.HTTP_201_CREATED)
         return Response({
@@ -217,92 +217,151 @@ class ViewFavoriteVideosAPIView(APIView):
 class CreatorListView(APIView):
     
     def get(self, request):
-        creators = Creator.objects.all()
-        serializer = CreatorSerializer(creators, many=True)
-        return Response({
-            "status_code": 200,
-            "creators": serializer.data
-        }, status=status.HTTP_200_OK)
+        user_id =IsJWTAuthenticated.has_permission(self,request)
+        if user_id:    
+            creators = Creator.objects.all()
+            serializer = CreatorSerializer(creators, many=True)
+            return Response({
+                "status_code": 200,
+                "creators": serializer.data
+            }, status=status.HTTP_200_OK)
 
 class CreatorDetailView(APIView):
     def get(self, request, name):
-        try:
-            creator = Creator.objects.get(name=name)
-        except Creator.DoesNotExist:
-            return Response({
-                "status_code": 404,
-                "error": "Creator not found."
-            }, status=status.HTTP_404_NOT_FOUND)
+        user_id =IsJWTAuthenticated.has_permission(self,request)
+        if user_id:    
+            try:
+                creator = Creator.objects.get(name=name)
+            except Creator.DoesNotExist:
+                return Response({
+                    "status_code": 404,
+                    "error": "Creator not found."
+                }, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CreatorSerializer(creator)
-        return Response({
-            "status_code": 200,
-            "creator": serializer.data
-        }, status=status.HTTP_200_OK)
+            serializer = CreatorDetailSerializer(creator)
+            return Response({
+                "status_code": 200,
+                "creator": serializer.data
+            }, status=status.HTTP_200_OK)
 
 
 class RecommendedVideosView(APIView):
     def get(self, request):
-        random_videos = Video.objects.order_by('?')[:5]  # randomly selects 5 videos
-        serializer = VideoSerializer(random_videos, many=True)
-        return Response({
-            "status_code": 200,
-            "recommended_videos": serializer.data
-        }, status=status.HTTP_200_OK)
+        user_id =IsJWTAuthenticated.has_permission(self,request)
+        if user_id:   
+            random_videos = Video.objects.order_by('?')[:5]  # randomly selects 5 videos
+            serializer = VideoSerializer(random_videos, many=True)
+            return Response({
+                "status_code": 200,
+                "recommended_videos": serializer.data
+            }, status=status.HTTP_200_OK)
 # new-videos/?limit=10
 class NewVideosView(APIView):
     def get(self, request):
-        # Get limit from query params, default to 5
-        limit = int(request.query_params.get('limit', 5))
+        user_id =IsJWTAuthenticated.has_permission(self,request)
+        if user_id:
+                
+            # Get limit from query params, default to 5
+            limit = int(request.query_params.get('limit', 5))
 
-        # Get latest videos up to the limit
-        latest_videos = Video.objects.order_by('-created_at')[:limit]
-        serializer = VideoSerializer(latest_videos, many=True)
+            # Get latest videos up to the limit
+            latest_videos = Video.objects.order_by('-created_at')[:limit]
+            serializer = VideoSerializer(latest_videos, many=True)
 
-        return Response({
-            "status_code": 200,
-            "video_count": len(serializer.data),
-            "recommended_videos": serializer.data
-        }, status=status.HTTP_200_OK)
-    
+            return Response({
+                "status_code": 200,
+                "video_count": len(serializer.data),
+                "recommended_videos": serializer.data
+            }, status=status.HTTP_200_OK)
+        
 from django.db.models import Q
 
 
 class SearchVideosAPIView(APIView):
     def get(self, request):
-        query = request.GET.get('q')  # Get ?q=keyword from the URL
-        videos = Video.objects.select_related('creator').order_by('-created_at')
+        user_id =IsJWTAuthenticated.has_permission(self,request)
+        if user_id:
+                
+            query = request.GET.get('q')  # Get ?q=keyword from the URL
+            videos = Video.objects.select_related('creator').order_by('-created_at')
 
-        if query:
-            videos = videos.filter(Q(title__icontains=query))
-            # Return all matched results when query is provided
-            serializer = VideoSimpleSerializer(videos, many=True)
+            if query:
+                videos = videos.filter(Q(title__icontains=query))
+                # Return all matched results when query is provided
+                serializer = VideoSimpleSerializer(videos, many=True)
+            else:
+                # Return only latest 5 if no query is given
+                latest_videos = videos[:5]
+                serializer = VideoSimpleSerializer(latest_videos, many=True)
+
+            return Response({
+                "status_code": 200,
+                "results": serializer.data
+            }, status=status.HTTP_200_OK)
         else:
-            # Return only latest 5 if no query is given
-            latest_videos = videos[:5]
-            serializer = VideoSimpleSerializer(latest_videos, many=True)
-
-        return Response({
-            "status_code": 200,
-            "results": serializer.data
-        }, status=status.HTTP_200_OK)
+            return Response({
+                "status_code": 404,
+                "message": "User not found."
+            }, status=status.HTTP_404_NOT_FOUND)
 
 class WatchVideoAPIView(APIView):
     def get(self, request, video_id):
-        try:
-            video = Video.objects.select_related('creator').get(id=video_id)
-        except Video.DoesNotExist:
-            return Response({"error": "Video not found"}, status=status.HTTP_404_NOT_FOUND)
+        user_id =IsJWTAuthenticated.has_permission(self,request)
+        if user_id:
+            try:
+                video = Video.objects.select_related('creator').get(id=video_id)
+            except Video.DoesNotExist:
+                return Response({"error": "Video not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        video_data = WatchVideoSerializer(video).data
+            video_data = WatchVideoSerializer(video).data
 
+            return Response({
+                "video_details": {
+                    "id": video_data['id'],
+                    "title": video_data['title'],
+                    "description": video_data['description'],
+                    "video_url": video_data['video_file']
+        
+                },
+                "creator_details": video_data['creator']
+            }, status=status.HTTP_200_OK)
+        
+
+class BannerAddAPIView(APIView):
+    def post(self, request):
+        user_id =IsJWTAuthenticated.has_permission(self,request)
+        if not user_id.is_superuser:
+            return Response({
+                    "status_code": 403,
+                    "message": "Only admin can upload banner."
+                }, status=status.HTTP_403_FORBIDDEN)
+        serializer = BannerAddSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status_code": 201,
+                "message": "Banner added successfully.",
+                "creator": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        
         return Response({
-            "video_details": {
-                "id": video_data['id'],
-                "title": video_data['title'],
-                "description": video_data['description'],
-                "video_url": video_data['video_file']
+            "status_code": 400,
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
     
-            },
-            "creator_details": video_data['creator']
+
+class BannerListView(APIView):
+    def get(self,request):
+        user_id =IsJWTAuthenticated.has_permission(self,request)
+        if not user_id:
+            return Response({
+                    "status_code": 404,
+                    "message": "User not found"
+                }, status=status.HTTP_403_FORBIDDEN)
+       
+        banners = Banner.objects.all()
+        serializer = BannerSerializer(banners, many=True)
+        return Response({
+            "status_code": 200,
+            "banners": serializer.data
         }, status=status.HTTP_200_OK)
