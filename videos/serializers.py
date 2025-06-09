@@ -45,7 +45,7 @@ class CreatorDetailSerializer(serializers.ModelSerializer):
 class CreatorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Creator
-        fields = ['id', 'name', 'role','about_us', 'total_videos','profile_image']
+        fields = ['id', 'name', 'role','about_us', 'total_videos','profile_image','views']
         
   
 class VideoSimpleSerializer(serializers.ModelSerializer):
