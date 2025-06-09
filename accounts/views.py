@@ -302,18 +302,18 @@ class UserStatusApiView(APIView):
         if not user.email or not user.fullname:
             return Response({
                 "status_code": 403,
-                "message": "User information not filled."
+                "status": "User information pending."
             }, status=status.HTTP_403_FORBIDDEN)
 
         # Step 4: Check if passcode is set
         if not user.passcode:
             return Response({
                 "status_code": 403,
-                "message": "User passcode not set."
+                "status": "passcode pending"
             }, status=status.HTTP_403_FORBIDDEN)
 
         # Step 5: Check if user is active
-        if not user.is_active:
+        if user.is_active ==False:
             return Response({
                 "status_code": 403,
                 "message": "User is inactive or logged out.",

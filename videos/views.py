@@ -220,7 +220,7 @@ class CreatorListView(APIView):
         user_id =IsJWTAuthenticated.has_permission(self,request)
         if user_id:    
             creators = Creator.objects.all()
-            serializer = CreatorSerializer(creators, many=True)
+            serializer = CreatorDetailSerializer(creators, many=True)
             return Response({
                 "status_code": 200,
                 "creators": serializer.data

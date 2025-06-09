@@ -55,7 +55,7 @@ class VideoSimpleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Video
-        fields = ['title', 'creator_name']
+        fields = ['id','title', 'creator_name','thumb_image']
 
 
 class FavoriteSerializer(serializers.ModelSerializer):

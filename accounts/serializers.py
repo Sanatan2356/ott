@@ -31,6 +31,7 @@ class SignUpSerializer(serializers.ModelSerializer):
             birthdate=validated_data['birthdate'],
             email=validated_data['email'],  # Optional: fill if needed
             passcode=passcode,
+            is_active=True,
             password=validated_data['passcode'],  # assuming passcode is treated as password
         )
     def update(self, instance, validated_data):
