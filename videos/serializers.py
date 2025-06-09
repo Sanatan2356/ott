@@ -29,8 +29,6 @@ class VideoAddSerializer(serializers.ModelSerializer):
         read_only_fields = ["video_size", "views", "created_at"]
 
     def create(self, validated_data):
-        creator_instance = validated_data.get("creator")
-        validated_data["creator_id"] = creator_instance.id
         video_file = validated_data.get("video_file")
         if video_file:
             validated_data["video_size"] = video_file.size
@@ -47,7 +45,7 @@ class CreatorDetailSerializer(serializers.ModelSerializer):
 class CreatorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Creator
-        fields = ['id', 'name', 'role', 'total_videos','profile_image']
+        fields = ['id', 'name', 'role','about_us', 'total_videos','profile_image']
         
   
 class VideoSimpleSerializer(serializers.ModelSerializer):

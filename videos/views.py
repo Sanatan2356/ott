@@ -69,6 +69,7 @@ class CreatorAddView(APIView):
 
 class VideoUploadView(APIView):
     def post(self, request):
+        
         auth_header = request.headers.get('Authorization')
         if not auth_header:
             return Response({
@@ -87,7 +88,7 @@ class VideoUploadView(APIView):
             decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             user_id = decoded_token.get('user_id')
             user = CustomUser.objects.get(id=user_id)
-
+          
             if not user.is_superuser:
                 return Response({
                     "status_code": 403,
@@ -107,13 +108,8 @@ class VideoUploadView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
 
         request.user = user
-        creator = request.headers.get('creator')
-        print(creator)
-        data = request.data.dict()
-        data['creator'] = creator
-      
-
-        serializer = VideoAddSerializer(data=data)
+        
+        serializer = VideoAddSerializer(data=request.data)
         
         if serializer.is_valid():
             
@@ -220,7 +216,7 @@ class CreatorListView(APIView):
         user_id =IsJWTAuthenticated.has_permission(self,request)
         if user_id:    
             creators = Creator.objects.all()
-            serializer = CreatorDetailSerializer(creators, many=True)
+            serializer = CreatorSerializer(creators, many=True)
             return Response({
                 "status_code": 200,
                 "creators": serializer.data
@@ -238,7 +234,7 @@ class CreatorDetailView(APIView):
                     "error": "Creator not found."
                 }, status=status.HTTP_404_NOT_FOUND)
 
-            serializer = CreatorDetailSerializer(creator)
+            serializer = CreatorSerializer(creator)
             return Response({
                 "status_code": 200,
                 "creator": serializer.data
