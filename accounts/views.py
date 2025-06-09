@@ -316,14 +316,14 @@ class UserStatusApiView(APIView):
         if user.is_active ==False:
             return Response({
                 "status_code": 403,
-                "message": "User is inactive or logged out.",
+                "status": "User is inactive or logged out.",
                 "login": False
             }, status=status.HTTP_403_FORBIDDEN)
 
         # Final response
         return Response({
             "status_code": 200,
-            "message": "User is valid and active.",
+            "status": "User is valid and active.",
             "user": {
                 "email": user.email,
                 "fullname": user.fullname
