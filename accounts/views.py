@@ -113,7 +113,7 @@ class OTPVerifyView(APIView):
             except Exception as e:
                 return Response({"status_code": 500, "message": f"Error storing tokens: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            return Response({"status_code": 200, "message": "OTP verified successfully.", "access": access_token, "refresh": str(refresh), "new_user": user.new_user}, status=status.HTTP_200_OK)
+            return Response({"status_code": 200, "message": "OTP verified successfully.", "access": access_token, "refresh": str(refresh), "new_user": user.new_user,'is_creator':user.is_creator}, status=status.HTTP_200_OK)
 
         return Response({"status_code": 400, "message": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
