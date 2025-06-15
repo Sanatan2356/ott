@@ -78,5 +78,5 @@ class WatchVideoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Video
-        fields = ['id', 'title', 'description', 'video_file', 'creator']
+        fields = ['id', 'title', 'description', 'video_file','thumb_image','views', 'creator']
 

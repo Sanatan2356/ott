@@ -316,7 +316,9 @@ class WatchVideoAPIView(APIView):
                     "id": video_data['id'],
                     "title": video_data['title'],
                     "description": video_data['description'],
-                    "video_url": video_data['video_file']
+                    "video_url": video_data['video_file'],
+                    'thumb_image':video_data['thumb_image'],
+                    'views':video_data['views']
         
                 },
                 "creator_details": video_data['creator']
